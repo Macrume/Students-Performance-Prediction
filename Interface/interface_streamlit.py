@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import joblib
@@ -7,11 +8,18 @@ import seaborn as sns
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, accuracy_score, f1_score, roc_auc_score
-from sklearn.preprocessing import LabelEncoder
-from PIL import Image
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 # Set Streamlit page configuration
 st.set_page_config(page_title="Student Grade Prediction", layout="wide")
+
+# Initialize session state
+if 'best_model' not in st.session_state:
+    st.session_state['best_model'] = None
+if 'label_encoders' not in st.session_state:
+    st.session_state['label_encoders'] = {}
+if 'scaler' not in st.session_state:
+    st.session_state['scaler'] = StandardScaler()
 
 
 # Load dataset
@@ -19,231 +27,445 @@ st.set_page_config(page_title="Student Grade Prediction", layout="wide")
 def load_data(file_path):
     try:
         df = pd.read_csv(file_path)
-        # Ensure target column exists
         if 'passed' not in df.columns:
-            df['passed'] = df['passed'].apply(lambda x: 1 if x == 'yes' else 0)
+            st.error(
+                "The dataset does not contain the 'passed' column. Ensure the dataset includes the target variable.")
+            return None
         return df
     except FileNotFoundError:
-        st.error(f"File {file_path} not found. Please upload or specify the correct path.")
-        return pd.DataFrame()
+        st.error(f"File {file_path} not found. Please check the file path.")
+        return None
     except Exception as e:
-        st.error(f"An error occurred while loading the dataset: {e}")
-        return pd.DataFrame()
+        st.error(f"Error loading data: {str(e)}")
+        return None
 
 
-# Load the dataset
-file_path = 'datasets/student-data.csv'
-data = load_data(file_path)
-
-# Stop the app if dataset is empty
-if data.empty:
-    st.stop()
-
-
-# Encode categorical variables
+# Preprocess data
 def preprocess_data(df):
-    le = LabelEncoder()
-    categorical_columns = ['school', 'sex', 'address', 'famsize', 'Pstatus', 'Mjob', 'Fjob', 'reason', 'guardian',
-                           'schoolsup', 'famsup', 'paid', 'activities', 'nursery', 'higher', 'internet', 'romantic']
+    if df is None:
+        return None, None
+
+    # Create copies to avoid modifying original data
+    df_processed = df.copy()
+
+    # Define categorical and numerical columns
+    categorical_columns = ['school', 'sex', 'address', 'famsize', 'Pstatus', 'Mjob', 'Fjob',
+                           'reason', 'guardian', 'schoolsup', 'famsup', 'paid', 'activities',
+                           'nursery', 'higher', 'internet', 'romantic']
+    numerical_columns = [col for col in df.columns if col not in categorical_columns + ['passed']]
+
+    # Encode categorical variables
     for col in categorical_columns:
-        if col in df.columns:
-            df[col] = le.fit_transform(df[col])
-    return df
+        if col in df_processed.columns:
+            le = LabelEncoder()
+            df_processed[col] = le.fit_transform(df_processed[col].astype(str))
+            st.session_state['label_encoders'][col] = le
+
+    # Scale numerical variables
+    if numerical_columns:
+        df_processed[numerical_columns] = st.session_state['scaler'].fit_transform(df_processed[numerical_columns])
+
+    return df_processed.drop('passed', axis=1), df_processed['passed']
 
 
-# Preprocess dataset
-data = preprocess_data(data)
-X = data.drop(columns=['passed'])  # Exclude the target column
-y = data['passed']
+# Train models function
+def train_models(X_train, y_train):
+    try:
+        models = {
 
-# Split dataset
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        }
 
-# Train a simple model
-model = RandomForestClassifier(random_state=42)
-model.fit(X_train, y_train)
+        # Only add pre-trained models if they exist
+        model_files = {
+            'Logistic Regression': 'models/logistic_regression_model.joblib',
+            'KNN': 'models/knn_model.joblib',
+            'SVM': 'models/svm_model.joblib'
+        }
 
-# Sidebar Navigation
-st.sidebar.title("Student Grade Prediction")
-option = st.sidebar.radio(
-    "Navigation", ["🏠 Main Menu", "📊 Dataset Analysis", "📈 Model Results", "🎯 Predict Grade"]
-)
+        for name, path in model_files.items():
+            if os.path.exists(path):
+                models[name] = joblib.load(path)
 
-if option == "🏠 Main Menu":
-    st.title("Welcome to the Student Grade Prediction App")
-    st.write("### Explore the possibilities of predicting student grades using advanced analytics and models.")
-    st.image("https://via.placeholder.com/1000x300.png?text=Student+Grade+Prediction", use_container_width=True)
+        # Train all models
+        for name, model in models.items():
+            model.fit(X_train, y_train)
 
-elif option == "📊 Dataset Analysis":
+        return models
+    except Exception as e:
+        st.error(f"Error training models: {str(e)}")
+        return None
+
+
+import streamlit as st
+
+
+def display_main_menu():
+    # Title and header
+    st.title("🎓 Welcome to the Student Grade Prediction App")
+
+    # Modern and structured description
+    st.markdown("### Explore student performance prediction using machine learning 📊")
+
+    # Add some additional information about the app
+    st.markdown("""
+    This application helps predict student academic performance using various features:
+    - **Student demographic information**: Insights like age, gender, and school.
+    - **Family background**: Factors such as family support and parents' education.
+    - **Study habits**: Weekly study time and school attendance.
+    - **Academic history**: Past academic performance, including class failures.
+
+    """)
+    st.write("### Features:")
+    with st.expander("Student Demographic Information"):
+        st.markdown("""
+        This includes features such as age, gender, and the school the student attends.
+        - **Age**: The age of the student (typically 15-22).
+        - **Gender**: The gender of the student.
+        - **School**: The type of school the student attends .
+        """)
+
+    with st.expander("Family Background"):
+        st.markdown("""
+        The support and background provided by the student's family.
+        - **Parents' Education Level**: What is the highest level of education completed by the student's parents?
+        - **Family Size**: How large is the student's family?
+        - **Parental Support**: Does the family provide extra educational support to the student?
+        """)
+
+    with st.expander("Study Habits"):
+        st.markdown("""
+        This section captures the student's study habits and time management.
+        - **Study Time**: How many hours per week the student spends on studying.
+        - **Absences**: How many days has the student missed school.
+        - **Failures**: Has the student experienced any past class failures?
+        """)
+
+    with st.expander("Academic History"):
+        st.markdown("""
+        The academic performance of the student in previous periods.
+        - **Previous Grades**: The student's grades from previous periods (e.g., G1, G2).
+        - **Final Grade (G3)**: The target output which is the final grade prediction.
+        """)
+
+
+def display_dataset_analysis(data):
     st.title("Dataset Analysis")
+
+    # Display basic statistics
     st.subheader("Dataset Overview")
     st.dataframe(data.head())
+    st.write(f"**Dataset Shape:** {data.shape}")
 
+    # Missing values analysis
+    st.subheader("Missing Values")
+    missing_values = data.isnull().sum()
+    st.write(missing_values[missing_values > 0] if missing_values.any() else "No missing values found")
+
+    # Summary statistics
     st.subheader("Summary Statistics")
-    st.table(data.describe())
+    st.write(data.describe())
 
-    st.subheader("Correlation Matrix")
-    fig, ax = plt.subplots(figsize=(10, 8))
-    correlation_matrix = data.corr()
-    sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', ax=ax)
-    st.pyplot(fig)
+    # Create visualizations with error handling
+    try:
+        # Correlation Heatmap
+        st.subheader("Correlation Heatmap")
+        fig, ax = plt.subplots(figsize=(12, 10))
+        sns.heatmap(data.corr(), cmap='coolwarm', annot=False)
+        st.pyplot(fig)
+        plt.close()
 
-# 📈 Model Results with Comparison
-elif option == "📈 Model Results":
-    st.title("Model Results")
+        # Target Distribution
+        st.subheader("Distribution of Target Variable: Passed")
+        fig, ax = plt.subplots()
+        sns.countplot(data=data, x='passed')
+        st.pyplot(fig)
+        plt.close()
+
+        # Feature Relationships
+        numerical_cols = data.select_dtypes(include=[np.number]).columns
+        if len(numerical_cols) > 0:
+            st.subheader("Feature Relationships")
+            selected_feature = st.selectbox("Select feature to analyze:", numerical_cols)
+            fig, ax = plt.subplots()
+            sns.boxplot(data=data, x='passed', y=selected_feature)
+            st.pyplot(fig)
+            plt.close()
+
+    except Exception as e:
+        st.error(f"Error creating visualizations: {str(e)}")
 
 
-    # Load trained models
-    @st.cache_data
-    def load_model(model_path):
-        try:
-            return joblib.load(model_path)
-        except FileNotFoundError:
-            st.error(f"Model file {model_path} not found.")
-            return None
+def display_model_results(X_train, X_test, y_train, y_test):
+    st.title("Model Performance Analysis")
 
+    # Calculate and store feature correlations
+    # We'll use training data to avoid data leakage
+    X_train_df = pd.DataFrame(X_train, columns=X_test.columns)
+    y_train_series = pd.Series(y_train)
+    correlations = X_train_df.apply(lambda x: x.corr(y_train_series))
+    st.session_state['feature_correlations'] = correlations
 
-    # Paths to saved models
-    logistic_model_path = "models/logistic_regression_model.joblib"
-    knn_model_path = "models/knn_model.joblib"
-    svm_model_path = "models/svm_model.joblib"
+    # Train models
+    models = train_models(X_train, y_train)
+    if models is None:
+        return
 
-    # Load models
-    logistic_model = load_model(logistic_model_path)
-    knn_model = load_model(knn_model_path)
-    svm_model = load_model(svm_model_path)
+    # Create tabs for different types of results
+    tabs = st.tabs(["Model Comparison", "Detailed Metrics", "ROC Curves"])
 
-    # Ensure X_test and y_test are available
-    if "X_test" not in globals() or "y_test" not in globals():
-        st.error("Test data (X_test and y_test) not loaded. Please load them before evaluating models.")
-    else:
-        # Function to evaluate models
-        def evaluate_model(model, X_test, y_test, model_name):
-            # Model prediction
-            y_pred = model.predict(X_test)
-            y_pred_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
-
-            # Convert y_test (if categorical) to numerical labels
-            if isinstance(y_test[0], str):  # If y_test is categorical (e.g., 'no'/'yes')
-                label_map = {'no': 0, 'yes': 1}
-                y_test = [label_map[label] for label in y_test]
-
-            # Calculate accuracy and other metrics
-            acc = accuracy_score(y_test, y_pred)
-            f1 = f1_score(y_test, y_pred)
-
-            # Handle the case when y_pred_proba is None (if the model doesn't support probability prediction)
-            auc = roc_auc_score(y_test, y_pred_proba) if y_pred_proba is not None else None
-            cm = confusion_matrix(y_test, y_pred)
-
-            return {
-                'model': model_name,
-                'accuracy': acc,
-                'f1': f1,
-                'auc': auc,
-                'cm': cm,
-                'y_pred': y_pred,
-                'y_pred_proba': y_pred_proba
-            }
-
-        # Evaluate models
+    with tabs[0]:
         results = []
-        if logistic_model:
-            results.append(evaluate_model(logistic_model, X_test, y_test, 'Logistic Regression'))
-        if knn_model:
-            results.append(evaluate_model(knn_model, X_test, y_test, 'KNN'))
-        if svm_model:
-            results.append(evaluate_model(svm_model, X_test, y_test, 'SVM'))
+        for name, model in models.items():
+            y_pred = model.predict(X_test)
+            y_pred_proba = model.predict_proba(X_test)[:, 1]
 
-        # Display results in a DataFrame
-        results_df = pd.DataFrame([
-            [res['model'], res['accuracy'], res['f1'], res['auc']]
-            for res in results
-        ], columns=['Model', 'Accuracy', 'F1 Score', 'ROC AUC'])
+            results.append({
+                'Model': name,
+                'Accuracy': accuracy_score(y_test, y_pred),
+                'F1 Score': f1_score(y_test, y_pred),
+                'ROC AUC': roc_auc_score(y_test, y_pred_proba)
+            })
 
-        st.write("### Model Comparison Results")
+        results_df = pd.DataFrame(results)
         st.dataframe(results_df)
 
-        # Plot ROC curves
-        st.write("### ROC Curve Comparison")
-        plt.figure(figsize=(8, 6))
+    with tabs[1]:
+        for name, model in models.items():
+            st.subheader(f"{name} Metrics")
+            y_pred = model.predict(X_test)
+            cm = confusion_matrix(y_test, y_pred)
 
-        for res in results:
-            if res['y_pred_proba'] is not None:
-                # Use pos_label=1 to ensure the correct class is treated as the positive class
-                fpr, tpr, _ = roc_curve(y_test, res['y_pred_proba'], pos_label=1)
-                plt.plot(fpr, tpr, label=f"{res['model']} (AUC={res['auc']:.2f})")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write("Confusion Matrix")
+                st.write(pd.DataFrame(
+                    cm,
+                    columns=['Predicted Negative', 'Predicted Positive'],
+                    index=['Actual Negative', 'Actual Positive']
+                ))
 
-        plt.plot([0, 1], [0, 1], '--', color='grey')
+            with col2:
+                st.write("Classification Report")
+                report = classification_report(y_test, y_pred, output_dict=True)
+                st.write(pd.DataFrame(report).transpose())
+
+    with tabs[2]:
+        fig, ax = plt.subplots(figsize=(8, 6))
+        for name, model in models.items():
+            y_pred_proba = model.predict_proba(X_test)[:, 1]
+            fpr, tpr, _ = roc_curve(y_test, y_pred_proba)
+            plt.plot(fpr, tpr, label=f'{name} (AUC = {roc_auc_score(y_test, y_pred_proba):.2f})')
+
+        plt.plot([0, 1], [0, 1], 'k--', label='Random')
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
-        plt.title('ROC Curve Comparison')
+        plt.title('ROC Curves')
         plt.legend()
-        st.pyplot(plt)
+        st.pyplot(fig)
+        plt.close()
 
-        # Select the best model based on F1 Score
-        best_model_row = results_df.sort_values(by='F1 Score', ascending=False).iloc[0]
-        st.write("### Best Model Selection")
-        st.write(f"Best Model: {best_model_row['Model']}")
-        st.write(f"Accuracy: {best_model_row['Accuracy']:.4f}")
-        st.write(f"F1 Score: {best_model_row['F1 Score']:.4f}")
-        st.write(f"ROC AUC: {best_model_row['ROC AUC']:.4f}")
+    # Save best model
+    best_model_name = results_df.loc[results_df['F1 Score'].idxmax(), 'Model']
+    st.session_state['best_model'] = models[best_model_name]
+    st.success(f"Best performing model: {best_model_name}")
 
-        # Assign the best model globally
-        global best_model
-        if best_model_row['Model'] == 'Logistic Regression':
-            best_model = logistic_model
-        elif best_model_row['Model'] == 'KNN':
-            best_model = knn_model
-        elif best_model_row['Model'] == 'SVM':
-            best_model = svm_model
-        else:
-            st.error("No valid best model selected.")
-            best_model = None
 
-# 🎯 Predict Grade using Best Model
-elif option == "🎯 Predict Grade":
-    st.title("Predict Grade")
+def display_prediction_interface(X):
+    st.title("Grade Prediction")
 
-    st.write("### Adjust the Sliders for Prediction 🎛")
-    st.markdown(
-        """<p style="font-size:16px;">Use the sliders below to set feature values and generate a pass/fail prediction. 
-        Hover over the <b>?</b> icons to learn more about each feature.</p>""",
-        unsafe_allow_html=True
-    )
+    # Check if the model and feature correlations are available
+    if st.session_state['best_model'] is None:
+        st.warning("Please run the model evaluation first to train the model!")
+        return
 
-    # Define tooltips for each feature
-    tooltips = {
-        'gender': "Gender of the student (0: Male, 1: Female).",
-        'race/ethnicity': "Group classification based on ethnicity (e.g., A, B, C, etc.).",
-        'parental level of education': "Highest level of education achieved by the student's parent(s).",
-        'lunch': "Type of lunch the student receives (0: Free/Reduced, 1: Standard).",
-        'test preparation course': "Whether the student completed a test preparation course (0: None, 1: Completed)."
+    # Ensure feature correlations are available
+    if 'feature_correlations' not in st.session_state:
+        st.error("Please run the model evaluation to calculate feature correlations first!")
+        return
+
+    # Get the top 10 most correlated features
+    correlation_series = abs(st.session_state['feature_correlations'])
+    top_features = correlation_series.nlargest(10).index.tolist()
+
+    st.write("### Enter Student Information")
+    st.info(
+        "You only need to fill in values for the 10 most influential features. Other features will use their average values automatically.")
+
+    # Attribute descriptions
+    attribute_descriptions = {
+        "school": "Student's school (binary: 'GP' - Gabriel Pereira, 'MS' - Mousinho da Silveira)",
+        "sex": "Student's sex (binary: 'F' - female, 'M' - male)",
+        "age": "Student's age (numeric: 15 to 22)",
+        "address": "Student's home address type (binary: 'U' - urban, 'R' - rural)",
+        "famsize": "Family size (binary: 'LE3' - <= 3, 'GT3' - > 3)",
+        "Pstatus": "Parent's cohabitation status (binary: 'T' - living together, 'A' - apart)",
+        "Medu": "Mother's education level (numeric: 0 - none, 1 - primary, 2 - 5th-9th grade, 3 - secondary, 4 - higher)",
+        "Fedu": "Father's education level (numeric: 0 - none, 1 - primary, 2 - 5th-9th grade, 3 - secondary, 4 - higher)",
+        "Mjob": "Mother's job (nominal: 'teacher', 'health', 'services', 'at_home', 'other')",
+        "Fjob": "Father's job (nominal: 'teacher', 'health', 'services', 'at_home', 'other')",
+        "reason": "Reason for choosing this school (nominal: 'close to home', 'reputation', 'course preference', 'other')",
+        "guardian": "Student's guardian (nominal: 'mother', 'father', 'other')",
+        "traveltime": "Home to school travel time (numeric: 1 - <15 min, 2 - 15-30 min, 3 - 30 min to 1 hour, 4 - >1 hour)",
+        "studytime": "Weekly study time (numeric: 1 - <2 hours, 2 - 2 to 5 hours, 3 - 5 to 10 hours, 4 - >10 hours)",
+        "failures": "Number of past class failures (numeric: 1-2, else 4)",
+        "schoolsup": "Extra educational support (binary: 'yes' or 'no')",
+        "famsup": "Family educational support (binary: 'yes' or 'no')",
+        "paid": "Extra paid classes (binary: 'yes' or 'no')",
+        "activities": "Extra-curricular activities (binary: 'yes' or 'no')",
+        "nursery": "Attended nursery school (binary: 'yes' or 'no')",
+        "higher": "Wants to pursue higher education (binary: 'yes' or 'no')",
+        "internet": "Internet access at home (binary: 'yes' or 'no')",
+        "romantic": "In a romantic relationship (binary: 'yes' or 'no')",
+        "famrel": "Quality of family relationships (numeric: 1 - very bad to 5 - very good)",
+        "freetime": "Free time after school (numeric: 1 - very low to 5 - very high)",
+        "goout": "Going out with friends (numeric: 1 - very low to 5 - very high)",
+        "Dalc": "Workday alcohol consumption (numeric: 1 - very low to 5 - very high)",
+        "Walc": "Weekend alcohol consumption (numeric: 1 - very low to 5 - very high)",
+        "health": "Current health status (numeric: 1 - very bad to 5 - very good)",
+        "absences": "Number of school absences (numeric: 0 to 93)",
+        "G1": "First period grade (numeric: 0 to 20)",
+        "G2": "Second period grade (numeric: 0 to 20)",
+        "G3": "Final grade (numeric: 0 to 20, output target)"
     }
 
-    # Collect user input
-    user_data = {}
-    col1, col2 = st.columns(2)
+    # Display correlation information
+    st.write("### Feature Importance")
+    correlation_df = pd.DataFrame({
+        'Feature': top_features,
+        'Correlation': correlation_series[top_features].round(3)
+    })
+    st.dataframe(correlation_df)
 
-    for i, column in enumerate(X.columns):
-        with (col1 if i % 2 == 0 else col2):
-            min_val, max_val = data[column].min(), data[column].max()
-            tooltip = tooltips.get(column, "Feature not documented.")
-            user_data[column] = st.slider(
-                f"{column} 🎚",
-                min_value=float(min_val),
-                max_value=float(max_val),
-                step=(max_val - min_val) / 100,
-                value=(max_val + min_val) / 2,
-                help=tooltip  # Tooltip for each slider
-            )
+    # Create a form for input
+    with st.form("prediction_form"):
+        # Split features into two columns for better layout
+        col1, col2 = st.columns(2)
+        user_input = {}
 
-    # Prediction button
-    if st.button("Predict 🎯"):
-        if 'best_model' not in globals() or best_model is None:
-            st.error("Best model not defined. Please evaluate models first in the '📈 Model Results' section.")
-        else:
-            user_df = pd.DataFrame([user_data])
-            prediction = best_model.predict(user_df)[0]
-            result = "Pass" if prediction == 1 else "Fail"
-            st.success(f"Prediction Completed Successfully! The student is predicted to: **{result}**")
+        # Initialize all features with mean values
+        for feature in X.columns:
+            user_input[feature] = X[feature].mean()
+
+        # Create inputs only for top features
+        for i, feature in enumerate(top_features):
+            with col1 if i < 5 else col2:
+                st.write(f"**{feature}:** {attribute_descriptions.get(feature, 'No description available.')}")
+
+                # Display feature correlation value
+                correlation_value = correlation_series[feature]
+                st.write(f"**Correlation:** {correlation_value:.3f}")
+
+                if feature in st.session_state['label_encoders']:
+                    # Categorical feature with label encoding
+                    options = st.session_state['label_encoders'][feature].classes_
+                    value = st.selectbox(
+                        f"{feature} (categorical)",
+                        options,
+                        help=f"Correlation with outcome: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = st.session_state['label_encoders'][feature].transform([str(value)])[0]
+                else:
+                    # Numerical feature, use slider for better interaction
+                    min_value, max_value = X[feature].min(), X[feature].max()
+                    value = st.slider(
+                        f"{feature} (numerical)",
+                        min_value=min_value,
+                        max_value=max_value,
+                        value=float(X[feature].mean()),
+                        step=0.1,
+                        help=f"Average: {X[feature].mean():.2f}, Correlation: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = value
+
+        # Submit button for prediction
+        submitted = st.form_submit_button("Predict")
+
+        if submitted:
+            try:
+                # Prepare the input data for prediction
+                input_df = pd.DataFrame([user_input])
+                prediction = st.session_state['best_model'].predict(input_df)[0]
+                probability = st.session_state['best_model'].predict_proba(input_df)[0][1]
+
+                # Display the results in a user-friendly manner
+                st.markdown("---")
+                st.markdown("### Prediction Results")
+
+                col1, col2, col3 = st.columns([1, 1, 2])
+
+                with col1:
+                    st.metric(
+                        "Predicted Outcome",
+                        "Pass" if prediction == 1 else "Fail"
+                    )
+                with col2:
+                    st.metric(
+                        "Probability of Passing",
+                        f"{probability:.1%}"
+                    )
+                with col3:
+                    st.info("Prediction based on the 10 most influential features. Other features use average values.")
+
+                # Display the feature values used for prediction
+                st.markdown("### Feature Values Used for Prediction")
+
+                prediction_details = pd.DataFrame({
+                    'Feature': top_features,
+                    'Value': [user_input[f] for f in top_features],
+                    'Correlation': correlation_series[top_features]
+                })
+
+                # Highlight correlations for better readability
+                st.dataframe(prediction_details.style.background_gradient(subset=['Correlation'], cmap='RdYlBu'))
+
+            except Exception as e:
+                st.error(f"Error making prediction: {str(e)}")
+
+
+def main():
+    # Add error handling for data loading and processing
+    try:
+        # Load the data
+        data = load_data('data/processed_data.csv')
+        if data is None:
+            st.stop()
+
+        # Preprocess the data
+        X, y = preprocess_data(data)
+        if X is None or y is None:
+            st.stop()
+
+        # Split the data into training and testing sets
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+        # Sidebar navigation with modern styling
+        st.sidebar.title("Navigation 🧭")
+
+        # Sidebar elements to navigate the app
+        st.sidebar.markdown("### Explore the app:")
+        pages = {
+            "🏠 Main Menu": display_main_menu,
+            "📊 Dataset Analysis": lambda: display_dataset_analysis(data),
+            "📈 Model Results": lambda: display_model_results(X_train, X_test, y_train, y_test),
+            "🎯 Predict Grade": lambda: display_prediction_interface(X)
+        }
+
+        # Add custom icon/emoji styling for the sidebar options
+        selection = st.sidebar.radio(
+            "Go to",
+            list(pages.keys()),
+            index=0,  # Default selection is Main Menu
+            key="sidebar_navigation"
+        )
+
+        # Display the selected page
+        pages[selection]()
+
+    except Exception as e:
+        st.error(f"An error occurred: {str(e)}")
+        st.error("Please check your data and try again.")
+
+
+# Main entry point
+if __name__ == "__main__":
+    main()
