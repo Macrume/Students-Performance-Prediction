@@ -426,7 +426,7 @@ def main():
     # Add error handling for data loading and processing
     try:
         # Load the data
-        data = load_data('data/processed_data.csv')
+        data = load_data('datasets/processed_data.csv')
         if data is None:
             st.stop()
 
