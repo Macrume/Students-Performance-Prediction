@@ -291,50 +291,41 @@ def display_prediction_interface(X):
     st.info(
         "You only need to fill in values for the 10 most influential features. Other features will use their average values automatically.")
 
-    # Attribute descriptions
+    # Attribute descriptions with normalized ranges
     attribute_descriptions = {
-        "school": "Student's school (binary: 'GP' - Gabriel Pereira, 'MS' - Mousinho da Silveira)",
-        "sex": "Student's sex (binary: 'F' - female, 'M' - male)",
+        "failures": "Number of past class failures (numeric: 1-2, else 4)",
+        "higher": "Wants to pursue higher education (binary: 'yes' or 'no')",
         "age": "Student's age (numeric: 15 to 22)",
-        "address": "Student's home address type (binary: 'U' - urban, 'R' - rural)",
-        "famsize": "Family size (binary: 'LE3' - <= 3, 'GT3' - > 3)",
-        "Pstatus": "Parent's cohabitation status (binary: 'T' - living together, 'A' - apart)",
+        "goout": "Going out with friends (numeric: 1 - very low to 5 - very high)",
+        "paid": "Extra paid classes (binary: 'yes' or 'no')",
         "Medu": "Mother's education level (numeric: 0 - none, 1 - primary, 2 - 5th-9th grade, 3 - secondary, 4 - higher)",
         "Fedu": "Father's education level (numeric: 0 - none, 1 - primary, 2 - 5th-9th grade, 3 - secondary, 4 - higher)",
-        "Mjob": "Mother's job (nominal: 'teacher', 'health', 'services', 'at_home', 'other')",
-        "Fjob": "Father's job (nominal: 'teacher', 'health', 'services', 'at_home', 'other')",
-        "reason": "Reason for choosing this school (nominal: 'close to home', 'reputation', 'course preference', 'other')",
-        "guardian": "Student's guardian (nominal: 'mother', 'father', 'other')",
-        "traveltime": "Home to school travel time (numeric: 1 - <15 min, 2 - 15-30 min, 3 - 30 min to 1 hour, 4 - >1 hour)",
         "studytime": "Weekly study time (numeric: 1 - <2 hours, 2 - 2 to 5 hours, 3 - 5 to 10 hours, 4 - >10 hours)",
-        "failures": "Number of past class failures (numeric: 1-2, else 4)",
-        "schoolsup": "Extra educational support (binary: 'yes' or 'no')",
-        "famsup": "Family educational support (binary: 'yes' or 'no')",
-        "paid": "Extra paid classes (binary: 'yes' or 'no')",
-        "activities": "Extra-curricular activities (binary: 'yes' or 'no')",
-        "nursery": "Attended nursery school (binary: 'yes' or 'no')",
-        "higher": "Wants to pursue higher education (binary: 'yes' or 'no')",
-        "internet": "Internet access at home (binary: 'yes' or 'no')",
-        "romantic": "In a romantic relationship (binary: 'yes' or 'no')",
-        "famrel": "Quality of family relationships (numeric: 1 - very bad to 5 - very good)",
-        "freetime": "Free time after school (numeric: 1 - very low to 5 - very high)",
-        "goout": "Going out with friends (numeric: 1 - very low to 5 - very high)",
-        "Dalc": "Workday alcohol consumption (numeric: 1 - very low to 5 - very high)",
-        "Walc": "Weekend alcohol consumption (numeric: 1 - very low to 5 - very high)",
-        "health": "Current health status (numeric: 1 - very bad to 5 - very good)",
-        "absences": "Number of school absences (numeric: 0 to 93)",
-        "G1": "First period grade (numeric: 0 to 20)",
-        "G2": "Second period grade (numeric: 0 to 20)",
-        "G3": "Final grade (numeric: 0 to 20, output target)"
+        "Mjob": "Mother's job (nominal: 'teacher', 'health', 'services', 'at_home', 'other')",
+        "Dalc": "Workday alcohol consumption (numeric: 1 - very low to 5 - very high)"
     }
 
-    # Display correlation information
-    st.write("### Feature Importance")
-    correlation_df = pd.DataFrame({
-        'Feature': top_features,
-        'Correlation': correlation_series[top_features].round(3)
-    })
-    st.dataframe(correlation_df)
+    # Normalization functions
+    def normalize_age(age):
+        # Normalize age from 15-22 range to 0-1 range
+        return (age - 15) / (22 - 15)
+
+    def normalize_education(level):
+        # Normalize education level from 0-4 range to 0-1 range
+        return level / 4
+
+    def normalize_rating(rating):
+        # Normalize 1-5 ratings to 0-1 range
+        return (rating - 1) / (5 - 1)
+
+    def normalize_failures(failures):
+        # Normalize failures (1,2,4) to match training data scale
+        max_failures = 4
+        return failures / max_failures
+
+    def normalize_studytime(time):
+        # Normalize study time from 1-4 range to 0-1 range
+        return (time - 1) / (4 - 1)
 
     # Create a form for input
     with st.form("prediction_form"):
@@ -348,34 +339,101 @@ def display_prediction_interface(X):
 
         # Create inputs only for top features
         for i, feature in enumerate(top_features):
+            # Alternate between columns for a neat display
             with col1 if i < 5 else col2:
                 st.write(f"**{feature}:** {attribute_descriptions.get(feature, 'No description available.')}")
-
-                # Display feature correlation value
                 correlation_value = correlation_series[feature]
-                st.write(f"**Correlation:** {correlation_value:.3f}")
 
-                if feature in st.session_state['label_encoders']:
-                    # Categorical feature with label encoding
-                    options = st.session_state['label_encoders'][feature].classes_
-                    value = st.selectbox(
-                        f"{feature} (categorical)",
-                        options,
+                if feature == "failures":
+                    raw_value = st.selectbox(
+                        f"{feature} (numeric)",
+                        [1, 2, 4],
+                        index=0,
                         help=f"Correlation with outcome: {correlation_value:.3f}"
                     )
-                    user_input[feature] = st.session_state['label_encoders'][feature].transform([str(value)])[0]
-                else:
-                    # Numerical feature, use slider for better interaction
-                    min_value, max_value = X[feature].min(), X[feature].max()
-                    value = st.slider(
-                        f"{feature} (numerical)",
-                        min_value=min_value,
-                        max_value=max_value,
-                        value=float(X[feature].mean()),
-                        step=0.1,
-                        help=f"Average: {X[feature].mean():.2f}, Correlation: {correlation_value:.3f}"
+                    user_input[feature] = normalize_failures(raw_value)
+
+                elif feature == "higher":
+                    value = st.selectbox(
+                        f"{feature} (binary)",
+                        ['yes', 'no'],
+                        index=0,
+                        help=f"Correlation with outcome: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = 1.0 if value == 'yes' else 0.0
+
+                elif feature == "age":
+                    raw_value = st.slider(
+                        f"{feature} (numeric)",
+                        min_value=15,
+                        max_value=22,
+                        value=15,
+                        step=1,
+                        help=f"Select age between 15 and 22. Correlation: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = normalize_age(raw_value)
+
+                elif feature == "goout":
+                    raw_value = st.slider(
+                        f"{feature} (numeric)",
+                        min_value=1,
+                        max_value=5,
+                        value=3,
+                        step=1,
+                        help=f"Rate from 1 (very low) to 5 (very high). Correlation: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = normalize_rating(raw_value)
+
+                elif feature == "paid":
+                    value = st.selectbox(
+                        f"{feature} (binary)",
+                        ['yes', 'no'],
+                        index=1,
+                        help=f"Correlation with outcome: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = 1.0 if value == 'yes' else 0.0
+
+                elif feature in ["Medu", "Fedu"]:
+                    raw_value = st.slider(
+                        f"{feature} (numeric)",
+                        min_value=0,
+                        max_value=4,
+                        value=2,
+                        step=1,
+                        help=f"Education level from 0 (none) to 4 (higher). Correlation: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = normalize_education(raw_value)
+
+                elif feature == "studytime":
+                    raw_value = st.slider(
+                        f"{feature} (numeric)",
+                        min_value=1,
+                        max_value=4,
+                        value=2,
+                        step=1,
+                        help=f"Study time from 1 (<2 hours) to 4 (>10 hours). Correlation: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = normalize_studytime(raw_value)
+
+                elif feature == "Mjob":
+                    value = st.selectbox(
+                        f"{feature} (categorical)",
+                        ['teacher', 'health', 'services', 'at_home', 'other'],
+                        index=0,
+                        help=f"Correlation with outcome: {correlation_value:.3f}"
                     )
                     user_input[feature] = value
+
+                elif feature == "Dalc":
+                    raw_value = st.slider(
+                        f"{feature} (numeric)",
+                        min_value=1,
+                        max_value=5,
+                        value=1,
+                        step=1,
+                        help=f"Rate from 1 (very low) to 5 (very high). Correlation: {correlation_value:.3f}"
+                    )
+                    user_input[feature] = normalize_rating(raw_value)
 
         # Submit button for prediction
         submitted = st.form_submit_button("Predict")
@@ -384,10 +442,23 @@ def display_prediction_interface(X):
             try:
                 # Prepare the input data for prediction
                 input_df = pd.DataFrame([user_input])
+
+                # Create dummy variables for categorical features
+                input_df = pd.get_dummies(input_df, columns=['Mjob'], prefix=['Mjob'])
+
+                # Add any missing columns that were in the training data
+                for col in st.session_state['best_model'].feature_names_in_:
+                    if col not in input_df.columns:
+                        input_df[col] = 0
+
+                # Reorder columns to match training data
+                input_df = input_df[st.session_state['best_model'].feature_names_in_]
+
+                # Make prediction
                 prediction = st.session_state['best_model'].predict(input_df)[0]
                 probability = st.session_state['best_model'].predict_proba(input_df)[0][1]
 
-                # Display the results in a user-friendly manner
+                # Display the results
                 st.markdown("---")
                 st.markdown("### Prediction Results")
 
@@ -406,16 +477,16 @@ def display_prediction_interface(X):
                 with col3:
                     st.info("Prediction based on the 10 most influential features. Other features use average values.")
 
-                # Display the feature values used for prediction
+                # Display both raw and normalized values for clarity
                 st.markdown("### Feature Values Used for Prediction")
 
+                # Create a more detailed prediction details dataframe
                 prediction_details = pd.DataFrame({
                     'Feature': top_features,
-                    'Value': [user_input[f] for f in top_features],
+                    'Normalized Value': [user_input[f] for f in top_features],
                     'Correlation': correlation_series[top_features]
                 })
 
-                # Highlight correlations for better readability
                 st.dataframe(prediction_details.style.background_gradient(subset=['Correlation'], cmap='RdYlBu'))
 
             except Exception as e:
@@ -426,7 +497,7 @@ def main():
     # Add error handling for data loading and processing
     try:
         # Load the data
-        data = load_data('datasets/processed_data.csv')
+        data = load_data('data/processed_data.csv')
         if data is None:
             st.stop()
 
@@ -466,6 +537,5 @@ def main():
         st.error("Please check your data and try again.")
 
 
-# Main entry point
 if __name__ == "__main__":
     main()
