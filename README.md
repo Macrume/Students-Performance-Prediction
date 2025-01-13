@@ -35,7 +35,7 @@ Aby uruchomić aplikację, postępuj zgodnie z poniższymi krokami:
 1. **Sklonuj repozytorium:**
 
    ```bash
-   git clone https://github.com/twoja-nazwa-uzytkownika/prognozator-wynikow-uczniow.git
+   git clone https://github.com/Macrume/Students-Performance-Prediction/tree/main
    cd prognozator-wynikow-uczniow
    ```
 2. **Zainstaluj zależności za pomocą Poetry**
