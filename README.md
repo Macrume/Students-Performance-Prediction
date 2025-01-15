@@ -2,7 +2,7 @@
 
 ## Opis
 
-**Students-Performance-Prediction** to aplikacja webowa wykorzystująca modele uczenia maszynowego do przewidywania wyników w nauce uczniów, na podstawie danych demograficznych i edukacyjnych a także umożliwia analizę czynników wpływających na osiągnięcia edukacyjne.
+**Students-Performance-Prediction** to aplikacja webowa wykorzystująca modele uczenia maszynowego do przewidywania wyników w nauce uczniów, na podstawie danych demograficznych i edukacyjnych. Narzędzie to wspiera nauczycieli i administratorów w podejmowaniu decyzji dotyczących dostosowywania programów nauczania do indywidualnych potrzeb uczniów, a także umożliwia analizę czynników wpływających na osiągnięcia edukacyjne.
 
 ## Cele projektu
 
@@ -15,6 +15,8 @@
 Projekt umożliwia:
 
 - **Identyfikację kluczowych czynników** wpływających na wyniki uczniów.
+- **Wsparcie decyzji edukacyjnych** na podstawie danych, co prowadzi do bardziej spersonalizowanego nauczania.
+- **Zmniejszenie nierówności edukacyjnych** poprzez identyfikację grup uczniów wymagających szczególnego wsparcia.
 - **Promowanie zrównoważonego rozwoju edukacji** poprzez wykorzystanie technologii wspierającej równość i efektywność systemu nauczania.
 
 ## Użyte dane i metody
