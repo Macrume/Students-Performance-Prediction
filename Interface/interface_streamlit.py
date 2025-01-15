@@ -40,34 +40,6 @@ def load_data(file_path):
         return None
 
 
-# Preprocess data
-def preprocess_data(df):
-    if df is None:
-        return None, None
-
-    # Create copies to avoid modifying original data
-    df_processed = df.copy()
-
-    # Define categorical and numerical columns
-    categorical_columns = ['school', 'sex', 'address', 'famsize', 'Pstatus', 'Mjob', 'Fjob',
-                           'reason', 'guardian', 'schoolsup', 'famsup', 'paid', 'activities',
-                           'nursery', 'higher', 'internet', 'romantic']
-    numerical_columns = [col for col in df.columns if col not in categorical_columns + ['passed']]
-
-    # Encode categorical variables
-    for col in categorical_columns:
-        if col in df_processed.columns:
-            le = LabelEncoder()
-            df_processed[col] = le.fit_transform(df_processed[col].astype(str))
-            st.session_state['label_encoders'][col] = le
-
-    # Scale numerical variables
-    if numerical_columns:
-        df_processed[numerical_columns] = st.session_state['scaler'].fit_transform(df_processed[numerical_columns])
-
-    return df_processed.drop('passed', axis=1), df_processed['passed']
-
-
 # Train models function
 def train_models(X_train, y_train):
     try:
@@ -501,13 +473,13 @@ def main():
         if data is None:
             st.stop()
 
-        # Preprocess the data
-        X, y = preprocess_data(data)
+        X = data.drop('passed', axis=1)
+        y = data['passed']
         if X is None or y is None:
             st.stop()
 
         # Split the data into training and testing sets
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=0)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
 
         # Sidebar navigation with modern styling
         st.sidebar.title("Navigation 🧭")
