@@ -2,7 +2,7 @@
 
 ## Opis
 
-**Students-Performance-Prediction** to aplikacja webowa wykorzystująca modele uczenia maszynowego do przewidywania wyników testów uczniów z matematyki, czytania i pisania na podstawie danych demograficznych i edukacyjnych. Narzędzie to wspiera nauczycieli i administratorów w podejmowaniu decyzji dotyczących dostosowywania programów nauczania do indywidualnych potrzeb uczniów, a także umożliwia analizę czynników wpływających na osiągnięcia edukacyjne.
+**Students-Performance-Prediction** to aplikacja webowa wykorzystująca modele uczenia maszynowego do przewidywania wyników w nauce uczniów, na podstawie danych demograficznych i edukacyjnych. Narzędzie to wspiera nauczycieli i administratorów w podejmowaniu decyzji dotyczących dostosowywania programów nauczania do indywidualnych potrzeb uczniów, a także umożliwia analizę czynników wpływających na osiągnięcia edukacyjne.
 
 ## Cele projektu
 
@@ -21,12 +21,33 @@ Projekt umożliwia:
 
 ## Użyte dane i metody
 
-Dane wykorzystane w projekcie pochodzą z trzech amerykańskich szkół średnich i obejmują:
+**Podsumowanie użytych danych i metod**
+W projekcie wykorzystano dane dotyczące osiągnięć edukacyjnych uczniów z dwóch portugalskich szkół średnich. Zbiór danych zawiera szczegółowe informacje o uczniach, takie jak dane demograficzne, społeczne i związane ze szkołą, zebrane za pomocą raportów szkolnych oraz ankiet.
 
-- Płeć uczniów, grupa etniczna, poziom wykształcenia rodziców, status korzystania z dofinansowania obiadów oraz ukończenie kursu przygotowawczego.
-- Wyniki testów z matematyki, czytania i pisania.
+**Opis danych:**
+Liczba rekordów: 649 uczniów.
+Liczba atrybutów: 30 cech (plus zmienna docelowa).
+Zmienna docelowa: G3 (końcowa ocena w skali 0–20).
+Charakterystyka zbioru: Multidyscyplinarny, z cechami numerycznymi i kategorycznymi, umożliwiający zadania klasyfikacji i regresji.
+Brakujące dane: Zbiór danych jest kompletny, nie zawiera brakujących wartości.
 
-Do analizy danych zastosowano techniki uczenia maszynowego takie jak regresja, klasyfikacja oraz analiza skupień. Modele były trenowane i oceniane przy użyciu metryk takich jak dokładność (Accuracy), błąd średniokwadratowy (RMSE) i średni błąd absolutny (MAE).
+**Dane obejmują między innymi:**
+Demografię: wiek, płeć, typ zamieszkania (miejski/wiejski).
+Czynniki społeczne: wielkość rodziny, wykształcenie rodziców, ich zawód, jakość relacji rodzinnych.
+Czynniki szkolne: czas dojazdu do szkoły, tygodniowy czas nauki, uczestnictwo w zajęciach dodatkowych.
+Styl życia: korzystanie z Internetu, spożycie alkoholu, ilość wolnego czasu.
+Historia edukacyjna: oceny z dwóch wcześniejszych okresów (G1, G2), liczba nieobecności oraz wcześniejsze porażki.
+
+**Metody analizy i modelowania:**
+W projekcie wykorzystano różnorodne metody uczenia maszynowego, w tym klasyfikację i regresję. Modele zostały przetestowane pod kątem przewidywania oceny końcowej (G3) oraz przeanalizowano ich wydajność za pomocą kluczowych metryk, takich jak:
+Dokładność (Accuracy): Ocenia poprawność klasyfikacji.
+Błąd średniokwadratowy (RMSE): Mierzy różnice między wartościami przewidywanymi a rzeczywistymi.
+Średni błąd absolutny (MAE): Pokazuje średnią wartość błędu predykcji.
+
+**Dodatkowe informacje:**
+Warto zauważyć, że ocena końcowa G3 jest silnie skorelowana z wcześniejszymi ocenami (G1, G2), co stanowi ważny aspekt przy budowie modeli.
+Dane są dobrze ustrukturyzowane i pozwalają na eksplorację czynników wpływających na wyniki edukacyjne uczniów.
+Projekt ten stanowi znaczący krok w wykorzystaniu technologii do analizy i wspierania procesów edukacyjnych. Pozwala na identyfikację kluczowych czynników wpływających na wyniki uczniów, co może być pomocne dla nauczycieli i administratorów w podejmowaniu decyzji opartej na danych.
 
 ## Instalacja
 
